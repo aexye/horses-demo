@@ -8,6 +8,7 @@ from supabase import create_client, Client
 url = st.secrets["supabase_url"]
 key = st.secrets["supabase_key"]
 zyte_api = st.secrets["zyte_api"]
+zyte_api = '340150045b364ca5abcd6a44403b1835'
 supabase: Client = create_client(url, key)
 
 def get_odds_html(zyte_api, url):
@@ -42,11 +43,10 @@ def get_odds_data(browser_html):
         odds_dict = {}
         for price_element in price_elements:
             # Check if the required attributes are present
-            print(price_element.attrs)
             if 'data-diffusion-bookmaker' in price_element.attrs:
                 bookmaker = price_element['data-diffusion-bookmaker']
                 odds_element = price_element.select_one('a', class_='RC-oddsRunnerContent__price')
-                if odds_element is None:
+                if odds_element['data-diffusion-decimal'] is None:
                     continue
                 odds = float(odds_element['data-diffusion-decimal'])
                 odds_dict[bookmaker] = odds
@@ -59,10 +59,12 @@ def get_odds_data(browser_html):
 
 
 
-response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds_predicted', 'url').execute()
+response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds_predicted', 'url', 'horse_id').execute()
 response_uk = pd.DataFrame(response_uk.data)
 odds_uk = get_odds_html(zyte_api, response_uk['url'][0])
 odds_uk_df = get_odds_data(odds_uk)
+uk_df = response_uk.merge(odds_uk_df, on='horse_id', how='left')
+uk_df.drop(columns=['url', 'horse_id'], inplace=True)
 
 response_fr = supabase.table('fr_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds', 'odds_predicted').execute()
 fr_df = pd.DataFrame(response_fr.data)
@@ -70,9 +72,7 @@ fr_df = pd.DataFrame(response_fr.data)
 
 st.title('Horse Racing Data')
 st.write('UK Horse Racing Data')
-st.write(response_uk)
-st.write('UK Horse Racing Odds Data')
-st.write(odds_uk_df)
+st.write(uk_df)
 st.write('FR Horse Racing Data')
 st.write(fr_df)
 
