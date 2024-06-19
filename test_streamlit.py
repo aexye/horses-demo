@@ -47,8 +47,9 @@ def get_odds_data(browser_html):
                 bookmaker = price_element['data-diffusion-bookmaker']
                 odds_element = price_element.select_one('a', class_='RC-oddsRunnerContent__price')
                 if odds_element['data-diffusion-decimal'] is None:
-                    continue
-                odds = float(odds_element['data-diffusion-decimal'])
+                    odds = 0.0
+                else:
+                    odds = float(odds_element['data-diffusion-decimal'])
                 odds_dict[bookmaker] = odds
         # Add the horse ID to the odds data
         entry = {'horse_id': horse_id, **odds_dict}
