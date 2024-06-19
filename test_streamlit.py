@@ -26,7 +26,6 @@ def get_odds_html(zyte_api, url):
     
     return browser_html
     
-@st.cache_data(ttl=750)
 def get_odds_data(browser_html):
     
     soup = BeautifulSoup(browser_html, 'html.parser')
