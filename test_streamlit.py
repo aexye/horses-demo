@@ -46,7 +46,7 @@ def get_odds_data(browser_html):
             if 'data-diffusion-bookmaker' in price_element.attrs:
                 bookmaker = price_element['data-diffusion-bookmaker']
                 odds_element = price_element.select_one('a', class_='RC-oddsRunnerContent__price')
-                if odds_element['data-diffusion-decimal'] is None:
+                if odds_element.get('data-diffusion-decimal') is None:
                     odds = 0.0
                 else:
                     odds = float(odds_element['data-diffusion-decimal'])
