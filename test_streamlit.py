@@ -64,6 +64,7 @@ response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 
 response_uk = pd.DataFrame(response_uk.data)
 odds_uk = get_odds_html(zyte_api, response_uk['url'][0])
 odds_uk_df = get_odds_data(odds_uk)
+odds_uk_df['horse_id'] = odds_uk_df['horse_id'].astype(int)
 uk_df = response_uk.merge(odds_uk_df, on='horse_id', how='left')
 uk_df.drop(columns=['url', 'horse_id'], inplace=True)
 
