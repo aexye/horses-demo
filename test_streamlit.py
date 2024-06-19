@@ -8,8 +8,8 @@ from supabase import create_client, Client
 url = st.secrets["supabase_url"]
 key = st.secrets["supabase_key"]
 zyte_api = st.secrets["zyte_api"]
-zyte_api = '340150045b364ca5abcd6a44403b1835'
 supabase: Client = create_client(url, key)
+
 
 @st.cache_data(ttl=750)
 def get_odds_html(zyte_api, url):
@@ -23,11 +23,6 @@ def get_odds_html(zyte_api, url):
         },
     )
     browser_html: str = api_response.json()["browserHtml"]
-    
-    return browser_html
-    
-def get_odds_data(browser_html):
-    
     soup = BeautifulSoup(browser_html, 'html.parser')
     # Find all the divs containing horse runner information
     horse_rows = soup.find_all('div', attrs={'data-test-selector': 'RC-oddsRunnerContent__runnerRow'})
@@ -63,8 +58,7 @@ def get_odds_data(browser_html):
 
 response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds_predicted', 'url', 'horse_id').execute()
 response_uk = pd.DataFrame(response_uk.data)
-odds_uk = get_odds_html(zyte_api, response_uk['url'][0])
-odds_uk_df = get_odds_data(odds_uk)
+odds_uk_df = get_odds_html(zyte_api, response_uk['url'][0])
 odds_uk_df['horse_id'] = odds_uk_df['horse_id'].astype(int)
 uk_df = response_uk.merge(odds_uk_df, on='horse_id', how='left')
 uk_df.drop(columns=['url', 'horse_id'], inplace=True)
@@ -78,5 +72,6 @@ st.write('UK Horse Racing Data')
 st.write(uk_df)
 st.write('FR Horse Racing Data')
 st.write(fr_df)
+
 
 
