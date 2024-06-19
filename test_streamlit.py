@@ -11,6 +11,7 @@ zyte_api = st.secrets["zyte_api"]
 zyte_api = '340150045b364ca5abcd6a44403b1835'
 supabase: Client = create_client(url, key)
 
+@st.cache_data(ttl=750)
 def get_odds_html(zyte_api, url):
     
     api_response = requests.post(
@@ -24,7 +25,8 @@ def get_odds_html(zyte_api, url):
     browser_html: str = api_response.json()["browserHtml"]
     
     return browser_html
-
+    
+@st.cache_data(ttl=750)
 def get_odds_data(browser_html):
     
     soup = BeautifulSoup(browser_html, 'html.parser')
