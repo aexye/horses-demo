@@ -63,7 +63,6 @@ response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 
 response_uk = pd.DataFrame(response_uk.data)
 odds_uk = get_odds_html(zyte_api, response_uk['url'][0])
 odds_uk_df = get_odds_data(odds_uk)
-uk_df = response_uk.merge(odds_uk_df, on='horse_id', how='left')
 
 response_fr = supabase.table('fr_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds', 'odds_predicted').execute()
 fr_df = pd.DataFrame(response_fr.data)
@@ -71,7 +70,10 @@ fr_df = pd.DataFrame(response_fr.data)
 
 st.title('Horse Racing Data')
 st.write('UK Horse Racing Data')
-st.write(uk_df)
+st.write(response_uk)
+st.write('UK Horse Racing Odds Data')
+st.write(odds_uk_df)
 st.write('FR Horse Racing Data')
 st.write(fr_df)
+
 
