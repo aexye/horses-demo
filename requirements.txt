@@ -1,3 +1,4 @@
 supabase
 bs4
 selenium
+webdriver-manager
