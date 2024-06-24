@@ -1,8 +1,11 @@
-
 import streamlit as st
 import pandas as pd
-import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+import time
 from supabase import create_client, Client
 
 url = st.secrets["supabase_url"]
@@ -11,67 +14,77 @@ zyte_api = st.secrets["zyte_api"]
 supabase: Client = create_client(url, key)
 
 
-@st.cache_data(ttl=750)
-def get_odds_html(zyte_api, url):
-    
-    api_response = requests.post(
-        "https://api.zyte.com/v1/extract",
-        auth=(zyte_api, ""),
-        json={
-            "url": f"{url}/odds-comparison",
-            "browserHtml": True,
-        },
-    )
-    browser_html: str = api_response.json()["browserHtml"]
-    soup = BeautifulSoup(browser_html, 'html.parser')
-    # Find all the divs containing horse runner information
-    horse_rows = soup.find_all('div', attrs={'data-test-selector': 'RC-oddsRunnerContent__runnerRow'})
+def get_odds_html(url):
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    # List to store all horses' bookmaker odds data
-    all_odds_data = []
+    # Initialize Chrome driver
+    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    try:
+        url = f'{url}/odds-comparison'
+        driver.get(url)
+        time.sleep(5)  # Let the page load
+        
+        browser_html = driver.page_source
+        driver.quit()
 
-    # Iterate over each horse row
-    for horse_row in horse_rows:
-        # Extract the horse ID
-        horse_id = horse_row['data-odds-horse-uid']
-        # Loop through the elements containing odds information for each horse
-        price_elements = horse_row.select('.RC-oddsRunnerContent__data')
-        odds_dict = {}
-        for price_element in price_elements:
-            # Check if the required attributes are present
-            if 'data-diffusion-bookmaker' in price_element.attrs:
-                bookmaker = price_element['data-diffusion-bookmaker']
-                odds_element = price_element.select_one('a', class_='RC-oddsRunnerContent__price')
-                if odds_element.get('data-diffusion-decimal') is None:
-                    odds = 0.0
-                else:
-                    odds = float(odds_element['data-diffusion-decimal'])
-                odds_dict[bookmaker] = odds
-        # Add the horse ID to the odds data
-        entry = {'horse_id': horse_id, **odds_dict}
-        print(entry)
-        all_odds_data.append(entry)
-    df = pd.DataFrame(all_odds_data)
+        soup = BeautifulSoup(browser_html, 'html.parser')
+
+        horse_rows = soup.find_all('div', attrs={'data-test-selector': 'RC-oddsRunnerContent__runnerRow'})
+        all_odds_data = []
+
+        for horse_row in horse_rows:
+            horse_id = horse_row['data-odds-horse-uid']
+            price_elements = horse_row.select('.RC-oddsRunnerContent__data')
+            odds_dict = {}
+            for price_element in price_elements:
+                if 'data-diffusion-bookmaker' in price_element.attrs:
+                    bookmaker = price_element['data-diffusion-bookmaker']
+                    odds_element = price_element.select_one('a.RC-oddsRunnerContent__price')
+                    odds = float(odds_element['data-diffusion-decimal']) if odds_element.get('data-diffusion-decimal') else 0.0
+                    odds_dict[bookmaker] = odds
+
+            entry = {'horse_id': horse_id, **odds_dict}
+            all_odds_data.append(entry)
+        
+        df = pd.DataFrame(all_odds_data)
+        df['horse_id'] = df['horse_id'].astype(int)
+    except Exception as e:
+        driver.quit()
+        print(e)
+        raise e
     return df
 
+def get_data_uk():
+    response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds_predicted', 'url', 'horse_id').execute()
+    response_uk = pd.DataFrame(response_uk.data)
+    url = response_uk['url'].values[0]
+    return url, response_uk
 
+def main():
+    st.title("Horse Racing Odds Prediction")
+    url, response_uk = get_data_uk()
+    response_uk_pre = response_uk[['horse_id','race_date', 'race_name', 'city', 'horse', 'jockey', 'odds_predicted']]
+    # Create a placeholder for the dataframe
+    df_placeholder = st.empty()
 
-response_uk = supabase.table('uk_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds_predicted', 'url', 'horse_id').execute()
-response_uk = pd.DataFrame(response_uk.data)
-odds_uk_df = get_odds_html(zyte_api, response_uk['url'][0])
-odds_uk_df['horse_id'] = odds_uk_df['horse_id'].astype(int)
-uk_df = response_uk.merge(odds_uk_df, on='horse_id', how='left')
-uk_df.drop(columns=['url', 'horse_id'], inplace=True)
+    # Display the initial dataframe
+    df_placeholder.dataframe(response_uk_pre)
 
-response_fr = supabase.table('fr_horse_racing').select('race_date','race_name', 'city', 'horse', 'jockey', 'odds', 'odds_predicted').execute()
-fr_df = pd.DataFrame(response_fr.data)
+    if st.button("Fetch Odds"):
+        with st.spinner("Fetching data..."):
+            odds_df = get_odds_html(url)
+            if odds_df.empty:
+                st.error("Error fetching odds data")
+                return
+            final_df = pd.merge(response_uk, odds_df, on='horse_id', how='left')
+            final_df.drop(columns=['horse_id', 'url'], inplace=True)
+            df_placeholder.dataframe(final_df)
 
-
-st.title('Horse Racing Data')
-st.write('UK Horse Racing Data')
-st.write(uk_df)
-st.write('FR Horse Racing Data')
-st.write(fr_df)
+if __name__ == "__main__":
+    main()
 
 
 
