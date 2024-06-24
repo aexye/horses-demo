@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from webdriver_manager.firefox import GeckoDriverManager
 import time
 from supabase import create_client, Client
 
@@ -15,13 +15,11 @@ supabase: Client = create_client(url, key)
 
 
 def get_odds_html(url):
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
+    firefox_options = FirefoxOptions()
+    firefox_options.add_argument("--headless")
 
-    # Initialize Chrome driver
-    driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+    # Initialize Firefox driver
+    driver = webdriver.Firefox(service=FirefoxService(GeckoDriverManager().install()), options=firefox_options)
     try:
         url = f'{url}/odds-comparison'
         driver.get(url)
